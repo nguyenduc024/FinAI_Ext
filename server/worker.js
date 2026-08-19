@@ -74,37 +74,51 @@ export default {
 
         const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:`;
 
-        const model = 'gemini-3.6-flash';
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        // Smart Multi-Model Fallback Pool: Tự động đổi model khi bị Rate Limit (429)
+        const candidateModels = [
+          'gemini-3.5-flash',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-3.6-flash',
+        ];
 
-        const geminiResponse = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.2,
-            },
-          }),
-        });
+        let rawText = null;
+        let lastError = null;
 
-        if (!geminiResponse.ok) {
-          const errBody = await geminiResponse.json().catch(() => ({}));
-          const errorMsg = errBody.error?.message || `HTTP ${geminiResponse.status}: ${geminiResponse.statusText}`;
-          console.error(`Gemini API Error (${model}):`, errorMsg);
-          return new Response(
-            JSON.stringify({ success: false, error: `Gemini API: ${errorMsg}` }),
-            { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-          );
+        for (const model of candidateModels) {
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            const geminiResponse = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                generationConfig: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.2,
+                },
+              }),
+            });
+
+            if (!geminiResponse.ok) {
+              const errBody = await geminiResponse.json().catch(() => ({}));
+              lastError = errBody.error?.message || `HTTP ${geminiResponse.status}`;
+              console.warn(`Model ${model} returned error (switching to next model):`, lastError);
+              continue; // Tự động thử model tiếp theo nếu bị rate limit hoặc lỗi
+            }
+
+            const geminiData = await geminiResponse.json();
+            rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) break;
+          } catch (e) {
+            lastError = e.message;
+          }
         }
-
-        const geminiData = await geminiResponse.json();
-        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!rawText) {
           return new Response(
-            JSON.stringify({ success: false, error: 'Gemini AI không trả về nội dung' }),
+            JSON.stringify({ success: false, error: `Gemini API: ${lastError || 'Hết lượt yêu cầu tạm thời'}` }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
