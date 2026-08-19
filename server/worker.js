@@ -89,7 +89,7 @@ export default {
         let rawText = null;
 
         // ==========================================
-        // 🚀 CÁCH 1: GROQ CLOUD (llama-3.1-8b-instant — Siêu tốc 1000 tok/s, 14.400 reqs/ngày)
+        // 🚀 CÁCH 1: GROQ CLOUD (qwen/qwen3.6-27b & openai/gpt-oss-120b — Siêu tốc, Miễn phí)
         // ==========================================
         if (isGroq) {
           const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -99,10 +99,10 @@ export default {
               'Authorization': `Bearer ${apiKey.trim()}`,
             },
             body: JSON.stringify({
-              model: 'llama-3.1-8b-instant',
+              model: 'qwen/qwen3.6-27b',
               messages: [
-                { role: 'system', content: `${SYSTEM_PROMPT}\n\nRespond strictly with valid JSON.` },
-                { role: 'user', content: `Please explain this stock market term in JSON format:\nTerm: "${term}"\nContext: "${context || ''}"` },
+                { role: 'system', content: `${SYSTEM_PROMPT}\n\nRespond strictly with valid JSON only.` },
+                { role: 'user', content: `Term: "${term}"\nContext: "${context || ''}"\n\nReturn JSON output:` },
               ],
               response_format: { type: 'json_object' },
               temperature: 0.2,
