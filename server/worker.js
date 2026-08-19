@@ -67,44 +67,52 @@ export default {
         const apiKey = env.GEMINI_API_KEY;
         if (!apiKey) {
           return new Response(
-            JSON.stringify({ success: false, error: 'Server chưa thiết lập GEMINI_API_KEY' }),
+            JSON.stringify({ success: false, error: 'Server chưa thiết lập GEMINI_API_KEY trong Cloudflare Secrets' }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
 
-        const userPrompt = `Term: "${term}"\nContext: "${context || ''}"`;
+        const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:`;
 
-        // Gọi Gemini REST API
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        // Thử gemini-1.5-flash trước, nếu lỗi fallback sang gemini-2.0-flash
+        const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
+        let rawText = null;
+        let lastError = null;
 
-        const geminiResponse = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: userPrompt }] }],
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.2,
-            },
-          }),
-        });
+        for (const model of models) {
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        if (!geminiResponse.ok) {
-          const errText = await geminiResponse.text();
-          console.error('Gemini API Error:', errText);
-          return new Response(
-            JSON.stringify({ success: false, error: 'Lỗi khi kết nối với Gemini AI' }),
-            { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-          );
+            const geminiResponse = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                generationConfig: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.2,
+                },
+              }),
+            });
+
+            if (!geminiResponse.ok) {
+              const errBody = await geminiResponse.json().catch(() => ({}));
+              lastError = errBody.error?.message || `HTTP ${geminiResponse.status}`;
+              console.warn(`Model ${model} failed:`, lastError);
+              continue;
+            }
+
+            const geminiData = await geminiResponse.json();
+            rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) break;
+          } catch (e) {
+            lastError = e.message;
+          }
         }
-
-        const geminiData = await geminiResponse.json();
-        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!rawText) {
           return new Response(
-            JSON.stringify({ success: false, error: 'AI không trả về kết quả' }),
+            JSON.stringify({ success: false, error: `Gemini API: ${lastError || 'Không thể lấy kết quả'}` }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
