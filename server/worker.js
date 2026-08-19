@@ -76,62 +76,76 @@ export default {
           );
         }
 
-        // Lấy API Key từ Environment Variable bí mật
-        const apiKey = env.GEMINI_API_KEY;
+        // Lấy API Key từ Cloudflare Secrets (Hỗ trợ cả GROQ_API_KEY và GEMINI_API_KEY)
+        const apiKey = env.GROQ_API_KEY || env.GEMINI_API_KEY;
         if (!apiKey) {
           return new Response(
-            JSON.stringify({ success: false, error: 'Server chưa thiết lập GEMINI_API_KEY trong Cloudflare Secrets' }),
+            JSON.stringify({ success: false, error: 'Server chưa thiết lập GROQ_API_KEY trong Cloudflare Secrets' }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
 
-        const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:`;
-
-        // Smart Multi-Model Fallback Pool: Tự động đổi model khi bị Rate Limit (429)
-        const candidateModels = [
-          'gemini-3.5-flash',
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-          'gemini-3.6-flash',
-        ];
-
+        const isGroq = apiKey.startsWith('gsk_') || Boolean(env.GROQ_API_KEY);
         let rawText = null;
-        let lastError = null;
 
-        for (const model of candidateModels) {
-          try {
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        // ==========================================
+        // 🚀 CÁCH 1: GROQ CLOUD (Llama 3.3 70B — Siêu nhanh, 14.400 reqs/ngày Free)
+        // ==========================================
+        if (isGroq) {
+          const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                { role: 'system', content: SYSTEM_PROMPT },
+                { role: 'user', content: `Term: "${term}"\nContext: "${context || ''}"\n\nReturn JSON response:` },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.2,
+            }),
+          });
 
-            const geminiResponse = await fetch(geminiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: fullPrompt }] }],
-                generationConfig: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.2,
-                },
-              }),
-            });
-
-            if (!geminiResponse.ok) {
-              const errBody = await geminiResponse.json().catch(() => ({}));
-              lastError = errBody.error?.message || `HTTP ${geminiResponse.status}`;
-              console.warn(`Model ${model} returned error (switching to next model):`, lastError);
-              continue; // Tự động thử model tiếp theo nếu bị rate limit hoặc lỗi
-            }
-
-            const geminiData = await geminiResponse.json();
-            rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawText) break;
-          } catch (e) {
-            lastError = e.message;
+          if (!groqResponse.ok) {
+            const errBody = await groqResponse.json().catch(() => ({}));
+            throw new Error(`Groq API: ${errBody.error?.message || groqResponse.statusText}`);
           }
+
+          const groqData = await groqResponse.json();
+          rawText = groqData.choices?.[0]?.message?.content;
+        } 
+        // ==========================================
+        // 💎 CÁCH 2: GOOGLE GEMINI (gemini-3.6-flash)
+        // ==========================================
+        else {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
+          const geminiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:` }] }],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.2,
+              },
+            }),
+          });
+
+          if (!geminiResponse.ok) {
+            const errBody = await geminiResponse.json().catch(() => ({}));
+            throw new Error(`Gemini API: ${errBody.error?.message || geminiResponse.statusText}`);
+          }
+
+          const geminiData = await geminiResponse.json();
+          rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
         }
 
         if (!rawText) {
           return new Response(
-            JSON.stringify({ success: false, error: `Gemini API: ${lastError || 'Hết lượt yêu cầu tạm thời'}` }),
+            JSON.stringify({ success: false, error: 'AI không trả về nội dung' }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
