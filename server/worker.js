@@ -92,46 +92,30 @@ export default {
         // 🚀 CÁCH 1: GROQ CLOUD (llama-3.1-8b-instant — Siêu tốc 1000 tok/s, 14.400 reqs/ngày)
         // ==========================================
         if (isGroq) {
-          const groqModels = ['llama-3.1-8b-instant', 'llama3-70b-8192', 'mixtral-8x7b-32768'];
-          let groqError = null;
+          const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model: 'llama-3.1-8b-instant',
+              messages: [
+                { role: 'system', content: `${SYSTEM_PROMPT}\n\nRespond strictly with valid JSON.` },
+                { role: 'user', content: `Please explain this stock market term in JSON format:\nTerm: "${term}"\nContext: "${context || ''}"` },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.2,
+            }),
+          });
 
-          for (const gModel of groqModels) {
-            try {
-              const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${apiKey.trim()}`,
-                },
-                body: JSON.stringify({
-                  model: gModel,
-                  messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
-                    { role: 'user', content: `Term: "${term}"\nContext: "${context || ''}"\n\nReturn JSON response:` },
-                  ],
-                  response_format: { type: 'json_object' },
-                  temperature: 0.2,
-                }),
-              });
-
-              if (!groqResponse.ok) {
-                const errBody = await groqResponse.json().catch(() => ({}));
-                groqError = errBody.error?.message || groqResponse.statusText;
-                console.warn(`Groq model ${gModel} failed:`, groqError);
-                continue;
-              }
-
-              const groqData = await groqResponse.json();
-              rawText = groqData.choices?.[0]?.message?.content;
-              if (rawText) break;
-            } catch (e) {
-              groqError = e.message;
-            }
+          if (!groqResponse.ok) {
+            const errBody = await groqResponse.json().catch(() => ({}));
+            throw new Error(`Groq API (${groqResponse.status}): ${errBody.error?.message || groqResponse.statusText}`);
           }
 
-          if (!rawText) {
-            throw new Error(`Groq API: ${groqError || 'Không thể tạo phản hồi'}`);
-          }
+          const groqData = await groqResponse.json();
+          rawText = groqData.choices?.[0]?.message?.content;
         } 
         // ==========================================
         // 💎 CÁCH 2: GOOGLE GEMINI (gemini-3.6-flash)
