@@ -89,32 +89,49 @@ export default {
         let rawText = null;
 
         // ==========================================
-        // 🚀 CÁCH 1: GROQ CLOUD (qwen/qwen3.6-27b — Siêu tốc, Miễn phí)
+        // 🚀 CÁCH 1: GROQ CLOUD (openai/gpt-oss-120b & 20b — Siêu tốc, Thuần JSON 100%)
         // ==========================================
         if (isGroq) {
-          const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey.trim()}`,
-            },
-            body: JSON.stringify({
-              model: 'qwen/qwen3.6-27b',
-              messages: [
-                { role: 'system', content: SYSTEM_PROMPT },
-                { role: 'user', content: `Hãy giải thích thuật ngữ: "${term}". Ngữ cảnh câu văn: "${context || ''}". Trả về JSON chứa nội dung giải thích chi tiết, chính xác.` },
-              ],
-              temperature: 0.2,
-            }),
-          });
+          const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+          let groqError = null;
 
-          if (!groqResponse.ok) {
-            const errBody = await groqResponse.json().catch(() => ({}));
-            throw new Error(`Groq API (${groqResponse.status}): ${errBody.error?.message || groqResponse.statusText}`);
+          for (const gModel of groqModels) {
+            try {
+              const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey.trim()}`,
+                },
+                body: JSON.stringify({
+                  model: gModel,
+                  messages: [
+                    { role: 'system', content: SYSTEM_PROMPT },
+                    { role: 'user', content: `Please explain the term "${term}" in the context of: "${context || ''}". Output must be valid JSON.` },
+                  ],
+                  response_format: { type: 'json_object' },
+                  temperature: 0.2,
+                }),
+              });
+
+              if (!groqResponse.ok) {
+                const errBody = await groqResponse.json().catch(() => ({}));
+                groqError = errBody.error?.message || groqResponse.statusText;
+                console.warn(`Groq model ${gModel} failed:`, groqError);
+                continue;
+              }
+
+              const groqData = await groqResponse.json();
+              rawText = groqData.choices?.[0]?.message?.content;
+              if (rawText) break;
+            } catch (e) {
+              groqError = e.message;
+            }
           }
 
-          const groqData = await groqResponse.json();
-          rawText = groqData.choices?.[0]?.message?.content;
+          if (!rawText) {
+            throw new Error(`Groq API: ${groqError || 'Không thể tạo phản hồi'}`);
+          }
         } 
         // ==========================================
         // 💎 CÁCH 2: GOOGLE GEMINI (gemini-3.6-flash)
