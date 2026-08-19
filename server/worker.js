@@ -74,8 +74,8 @@ export default {
 
         const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:`;
 
-        // Thử gemini-1.5-flash trước, nếu lỗi fallback sang gemini-2.0-flash
-        const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
+        // Ưu tiên gemini-3.6-flash mới nhất theo yêu cầu của Google Gemini API
+        const models = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.0-flash'];
         let rawText = null;
         let lastError = null;
 
