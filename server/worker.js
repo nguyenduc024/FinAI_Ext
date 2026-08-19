@@ -149,19 +149,47 @@ export default {
           );
         }
 
-        // Tách JSON an toàn kể cả khi AI bọc trong ```json ... ```
-        let cleanJson = rawText.trim();
-        if (cleanJson.startsWith('```json')) {
-          cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleanJson.startsWith('```')) {
-          cleanJson = cleanJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        // Trích xuất JSON chính xác bằng thuật toán cân bằng dấu ngoặc (Bracket Balancer)
+        function extractJsonObject(str) {
+          const firstBrace = str.indexOf('{');
+          if (firstBrace === -1) throw new Error('Không tìm thấy dữ liệu JSON từ AI');
+          
+          let depth = 0;
+          let inString = false;
+          let escape = false;
+
+          for (let i = firstBrace; i < str.length; i++) {
+            const char = str[i];
+
+            if (escape) {
+              escape = false;
+              continue;
+            }
+
+            if (char === '\\') {
+              escape = true;
+              continue;
+            }
+
+            if (char === '"') {
+              inString = !inString;
+              continue;
+            }
+
+            if (!inString) {
+              if (char === '{') depth++;
+              else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                  return str.substring(firstBrace, i + 1);
+                }
+              }
+            }
+          }
+          return str.substring(firstBrace);
         }
 
-        const match = cleanJson.match(/\{[\s\S]*\}/);
-        if (match) {
-          cleanJson = match[0];
-        }
-
+        const cleanJson = extractJsonObject(rawText);
         const explanation = JSON.parse(cleanJson);
 
         // Lưu vào Server Cache để lần sau không tốn Quota AI
