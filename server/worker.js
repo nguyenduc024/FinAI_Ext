@@ -89,7 +89,7 @@ export default {
         let rawText = null;
 
         // ==========================================
-        // 🚀 CÁCH 1: GROQ CLOUD (qwen/qwen3.6-27b & openai/gpt-oss-120b — Siêu tốc, Miễn phí)
+        // 🚀 CÁCH 1: GROQ CLOUD (qwen/qwen3.6-27b — Siêu tốc, Miễn phí)
         // ==========================================
         if (isGroq) {
           const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -101,10 +101,9 @@ export default {
             body: JSON.stringify({
               model: 'qwen/qwen3.6-27b',
               messages: [
-                { role: 'system', content: `${SYSTEM_PROMPT}\n\nRespond strictly with valid JSON only.` },
-                { role: 'user', content: `Term: "${term}"\nContext: "${context || ''}"\n\nReturn JSON output:` },
+                { role: 'system', content: SYSTEM_PROMPT },
+                { role: 'user', content: `Explain the stock market term "${term}" in the context "${context || ''}". Provide the response strictly in JSON format as specified.` },
               ],
-              response_format: { type: 'json_object' },
               temperature: 0.2,
             }),
           });
@@ -150,7 +149,20 @@ export default {
           );
         }
 
-        const explanation = JSON.parse(rawText);
+        // Tách JSON an toàn kể cả khi AI bọc trong ```json ... ```
+        let cleanJson = rawText.trim();
+        if (cleanJson.startsWith('```json')) {
+          cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanJson.startsWith('```')) {
+          cleanJson = cleanJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        const match = cleanJson.match(/\{[\s\S]*\}/);
+        if (match) {
+          cleanJson = match[0];
+        }
+
+        const explanation = JSON.parse(cleanJson);
 
         // Lưu vào Server Cache để lần sau không tốn Quota AI
         SERVER_CACHE.set(cacheKey, explanation);
