@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Nunito Sans', 'Nunito', system-ui, -apple-system, sans-serif;
+  
+  --color-forest: #4F6B42;
+  --color-deep-forest: #263522;
+  --color-sage: #A8BB91;
+  --color-fresh-leaf: #7FA65B;
+  
+  --color-warm-cream: #F8F5EA;
+  --color-soft-ivory: #FFFDF7;
+  --color-pale-sage: #EEF2E5;
+  --color-border-subtle: #DDE3D2;
+  
+  --color-growth-green: #5F9B62;
+  --color-soft-coral: #C9786B;
+  --color-warm-amber: #D7AB4B;
+  --color-muted-olive: #697362;
+}
+
+:root {
+  --bg-app: #F8F5EA;
+  --card-bg: #FFFDF7;
+  --text-main: #263522;
+  --text-muted: #697362;
+  --color-primary: #4F6B42;
+  --color-primary-hover: #405735;
+  --border-color: #DDE3D2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 380px;
+  min-height: 520px;
+  margin: 0;
+  padding: 0;
+  font-family: 'Nunito Sans', 'Nunito', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Custom Scrollbar - Soft & Organic */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #DDE3D2;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #A8BB91;
+}
+
+/* Base button rules: NO STROKE / BORDER */
+button {
+  border: none !important;
+  outline: none;
+}
+
+/* Soft Cards & Shadows */
+.fin-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px -2px rgba(79, 107, 66, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fin-card:hover {
+  box-shadow: 0 8px 24px -4px rgba(79, 107, 66, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.03);
+}
+
+/* Primary Button (Forest Green, No Stroke, Pill Shaped) */
+.btn-primary {
+  background-color: #4F6B42;
+  color: #FFFFFF;
+  border: none !important;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 18px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(79, 107, 66, 0.25);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #3F5734;
+  box-shadow: 0 4px 14px rgba(79, 107, 66, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Secondary Button (Pale Sage, No Stroke, Pill Shaped) */
+.btn-secondary {
+  background-color: #EEF2E5;
+  color: #263522;
+  border: none !important;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #DFE8D3;
+  color: #1A2617;
+}
+
+/* Danger / Clear Button (Soft Coral Tint, No Stroke) */
+.btn-danger-ghost {
+  background-color: #FBF0EE;
+  color: #C9786B;
+  border: none !important;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger-ghost:hover:not(:disabled) {
+  background-color: #F5DDD8;
+  color: #BA6456;
+}
+
+.btn-danger-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Text Button */
+.btn-text {
+  background: transparent;
+  color: #4F6B42;
+  border: none !important;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.btn-text:hover {
+  opacity: 0.8;
+}
+
+/* Custom Organic Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #DDE3D2;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 9999px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #FFFFFF;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(38, 53, 34, 0.2);
+}
+
+input:checked + .toggle-slider {
+  background-color: #4F6B42;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
