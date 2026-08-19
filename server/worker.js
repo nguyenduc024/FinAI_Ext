@@ -149,54 +149,61 @@ export default {
           );
         }
 
-        // Trích xuất JSON chính xác bằng thuật toán cân bằng dấu ngoặc (Bracket Balancer)
-        function extractJsonObject(str) {
+        // Trích xuất và làm sạch JSON chống lỗi cú pháp từ AI
+        function cleanAndParseJSON(str) {
           const firstBrace = str.indexOf('{');
-          if (firstBrace === -1) throw new Error('Không tìm thấy dữ liệu JSON từ AI');
-          
-          let depth = 0;
-          let inString = false;
-          let escape = false;
+          const lastBrace = str.lastIndexOf('}');
+          if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+            throw new Error('Không tìm thấy cấu trúc JSON từ AI');
+          }
 
-          for (let i = firstBrace; i < str.length; i++) {
-            const char = str[i];
+          let jsonStr = str.substring(firstBrace, lastBrace + 1);
 
-            if (escape) {
-              escape = false;
-              continue;
-            }
+          // Loại bỏ comment nếu có
+          jsonStr = jsonStr.replace(/\/\/.*$/gm, '');
+          jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
 
-            if (char === '\\') {
-              escape = true;
-              continue;
-            }
+          // Loại bỏ dấu ba chấm lửng lỗi (...) hoặc […] do AI sinh ra
+          jsonStr = jsonStr.replace(/,\s*(\.\.\.|\u2026)\s*([}\]])/g, '$2');
+          jsonStr = jsonStr.replace(/\[\s*(\.\.\.|\u2026)\s*\]/g, '[]');
+          jsonStr = jsonStr.replace(/"(\.\.\.|\u2026)"/g, '""');
 
-            if (char === '"') {
-              inString = !inString;
-              continue;
-            }
+          // Loại bỏ dấu phẩy thừa (trailing commas)
+          jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
 
-            if (!inString) {
-              if (char === '{') depth++;
-              else if (char === '}') {
-                depth--;
-                if (depth === 0) {
-                  return str.substring(firstBrace, i + 1);
-                }
-              }
+          try {
+            return JSON.parse(jsonStr);
+          } catch (firstErr) {
+            // Sửa lỗi xuống dòng chưa escape trong chuỗi JSON
+            try {
+              const fixedNewlines = jsonStr.replace(/(?<="[^"]*)\n(?=[^"]*")/g, '\\n');
+              return JSON.parse(fixedNewlines);
+            } catch (secondErr) {
+              console.error('JSON Parse Raw:', jsonStr);
+              throw new Error('AI trả về cấu trúc JSON chưa hợp lệ, vui lòng thử lại');
             }
           }
-          return str.substring(firstBrace);
         }
 
-        const cleanJson = extractJsonObject(rawText);
-        const explanation = JSON.parse(cleanJson);
+        const explanation = cleanAndParseJSON(rawText);
+
+        // Chuẩn hóa dữ liệu trả về theo đúng interface
+        const normalizedData = {
+          term: explanation.term || term,
+          termEnglish: explanation.termEnglish || null,
+          definition: explanation.definition || 'Chưa có định nghĩa',
+          definitionEnglish: explanation.definitionEnglish || null,
+          example: explanation.example || null,
+          contextExplanation: explanation.contextExplanation || 'Thuật ngữ được sử dụng trong ngữ cảnh tài chính trên.',
+          relatedTerms: Array.isArray(explanation.relatedTerms) ? explanation.relatedTerms.filter(t => typeof t === 'string' && t.trim().length > 0) : [],
+          difficulty: ['beginner', 'intermediate', 'advanced'].includes(explanation.difficulty) ? explanation.difficulty : 'beginner',
+        };
 
         // Lưu vào Server Cache để lần sau không tốn Quota AI
-        SERVER_CACHE.set(cacheKey, explanation);
+        SERVER_CACHE.set(cacheKey, normalizedData);
 
         return new Response(
-          JSON.stringify({ success: true, data: explanation }),
+          JSON.stringify({ success: true, data: normalizedData }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
