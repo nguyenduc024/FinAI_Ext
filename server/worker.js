@@ -74,45 +74,37 @@ export default {
 
         const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSelected Term: "${term}"\nContext: "${context || ''}"\n\nRespond with valid JSON:`;
 
-        // Ưu tiên gemini-3.6-flash mới nhất theo yêu cầu của Google Gemini API
-        const models = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.0-flash'];
-        let rawText = null;
-        let lastError = null;
+        const model = 'gemini-3.6-flash';
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        for (const model of models) {
-          try {
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        });
 
-            const geminiResponse = await fetch(geminiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: fullPrompt }] }],
-                generationConfig: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.2,
-                },
-              }),
-            });
-
-            if (!geminiResponse.ok) {
-              const errBody = await geminiResponse.json().catch(() => ({}));
-              lastError = errBody.error?.message || `HTTP ${geminiResponse.status}`;
-              console.warn(`Model ${model} failed:`, lastError);
-              continue;
-            }
-
-            const geminiData = await geminiResponse.json();
-            rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawText) break;
-          } catch (e) {
-            lastError = e.message;
-          }
+        if (!geminiResponse.ok) {
+          const errBody = await geminiResponse.json().catch(() => ({}));
+          const errorMsg = errBody.error?.message || `HTTP ${geminiResponse.status}: ${geminiResponse.statusText}`;
+          console.error(`Gemini API Error (${model}):`, errorMsg);
+          return new Response(
+            JSON.stringify({ success: false, error: `Gemini API: ${errorMsg}` }),
+            { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          );
         }
+
+        const geminiData = await geminiResponse.json();
+        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!rawText) {
           return new Response(
-            JSON.stringify({ success: false, error: `Gemini API: ${lastError || 'Không thể lấy kết quả'}` }),
+            JSON.stringify({ success: false, error: 'Gemini AI không trả về nội dung' }),
             { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
