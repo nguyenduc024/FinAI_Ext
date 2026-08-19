@@ -151,13 +151,16 @@ export default {
 
         // Trích xuất và làm sạch JSON chống lỗi cú pháp từ AI
         function cleanAndParseJSON(str) {
-          const firstBrace = str.indexOf('{');
-          const lastBrace = str.lastIndexOf('}');
+          // 1. Loại bỏ hoàn toàn khối suy nghĩ <think>...</think> của các mô hình Reasoning
+          let cleanStr = str.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+          const firstBrace = cleanStr.indexOf('{');
+          const lastBrace = cleanStr.lastIndexOf('}');
           if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
             throw new Error('Không tìm thấy cấu trúc JSON từ AI');
           }
 
-          let jsonStr = str.substring(firstBrace, lastBrace + 1);
+          let jsonStr = cleanStr.substring(firstBrace, lastBrace + 1);
 
           // Loại bỏ comment nếu có
           jsonStr = jsonStr.replace(/\/\/.*$/gm, '');
