@@ -34,6 +34,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+// In-memory Server-side Cache (Giúp tiết kiệm 90% quota API)
+const SERVER_CACHE = new Map();
+
 export default {
   async fetch(request, env) {
     // Handle CORS Preflight
@@ -45,7 +48,7 @@ export default {
 
     // Health check endpoint
     if (url.pathname === '/' || url.pathname === '/health') {
-      return new Response(JSON.stringify({ status: 'ok', service: 'FinAI Proxy API' }), {
+      return new Response(JSON.stringify({ status: 'ok', service: 'FinAI Proxy API', cachedTerms: SERVER_CACHE.size }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
@@ -60,6 +63,16 @@ export default {
           return new Response(
             JSON.stringify({ success: false, error: 'Thiếu từ khóa cần giải thích' }),
             { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const cacheKey = term.trim().toLowerCase();
+        // Kiểm tra Server Cache trước để không tốn Quota Gemini
+        if (SERVER_CACHE.has(cacheKey)) {
+          const cachedResult = SERVER_CACHE.get(cacheKey);
+          return new Response(
+            JSON.stringify({ success: true, data: cachedResult, fromServerCache: true }),
+            { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -124,6 +137,9 @@ export default {
         }
 
         const explanation = JSON.parse(rawText);
+
+        // Lưu vào Server Cache để lần sau không tốn Quota AI
+        SERVER_CACHE.set(cacheKey, explanation);
 
         return new Response(
           JSON.stringify({ success: true, data: explanation }),
