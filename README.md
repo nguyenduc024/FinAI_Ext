@@ -1,6 +1,6 @@
 # 🌿 FinAI — Trợ Lý Thuật Ngữ Chứng Khoán Thông Minh
 
-> **Cozy. Smart. Insightful.** — Hiểu thuật ngữ, đầu tư tự tin.
+> **Giải thích thuật ngữ Chứng khoán tức thì** — Hiểu thuật ngữ, đầu tư tự tin.
 
 [![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4F6B42?style=flat-square&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![Gemini 2.0 Flash](https://img.shields.io/badge/AI-Google_Gemini-5F9B62?style=flat-square&logo=googlegemini&logoColor=white)](https://aistudio.google.com/)
