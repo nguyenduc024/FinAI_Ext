@@ -16,16 +16,16 @@ Guidelines:
 9. Keep definition under 150 words.
 10. Keep contextExplanation under 100 words.
 
-You MUST output your response as valid JSON matching the following schema:
+You MUST output your response as valid JSON with real data (do not output type names like string/null) matching this format:
 {
-  "term": string,
-  "termEnglish": string | null,
-  "definition": string,
-  "definitionEnglish": string | null,
-  "example": string | null,
-  "contextExplanation": string,
-  "relatedTerms": string[],
-  "difficulty": "beginner" | "intermediate" | "advanced"
+  "term": "Tên thuật ngữ",
+  "termEnglish": "English term (hoặc null)",
+  "definition": "Định nghĩa chi tiết dễ hiểu bằng tiếng Việt",
+  "definitionEnglish": "Detailed definition in English (hoặc null)",
+  "example": "Ví dụ thực tế dễ hiểu có số liệu cụ thể",
+  "contextExplanation": "Ý nghĩa thuật ngữ trong câu văn ngữ cảnh này",
+  "relatedTerms": ["Thuật ngữ liên quan 1", "Thuật ngữ liên quan 2"],
+  "difficulty": "beginner"
 }`;
 
 const CORS_HEADERS = {
@@ -102,7 +102,7 @@ export default {
               model: 'qwen/qwen3.6-27b',
               messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
-                { role: 'user', content: `Explain the stock market term "${term}" in the context "${context || ''}". Provide the response strictly in JSON format as specified.` },
+                { role: 'user', content: `Hãy giải thích thuật ngữ: "${term}". Ngữ cảnh câu văn: "${context || ''}". Trả về JSON chứa nội dung giải thích chi tiết, chính xác.` },
               ],
               temperature: 0.2,
             }),
