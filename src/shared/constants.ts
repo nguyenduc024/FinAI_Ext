@@ -6,7 +6,7 @@ export const MIN_SELECTION_LENGTH = 1;
 export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const MAX_CACHE_ENTRIES = 500;
 
-export const DEFAULT_WORKER_ENDPOINT = 'https://finai-proxy.your-name.workers.dev/api/explain';
+export const DEFAULT_WORKER_ENDPOINT = 'https://finai-ext.nguyenduc-personal.workers.dev/api/explain';
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   apiKey: '',

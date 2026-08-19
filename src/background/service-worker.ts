@@ -8,7 +8,7 @@ import {
   ExtensionSettings,
   TermExplanation
 } from '../shared/types';
-import { DEFAULT_SETTINGS, SYSTEM_PROMPT, GEMINI_MODEL } from '../shared/constants';
+import { DEFAULT_SETTINGS, SYSTEM_PROMPT, GEMINI_MODEL, DEFAULT_WORKER_ENDPOINT } from '../shared/constants';
 import { getCachedTerm, cacheTerm } from '../shared/cache';
 
 // Set default settings on install
@@ -98,59 +98,29 @@ async function handleLookupTerm(request: LookupRequest, sendResponse: (response:
       return sendResponse({ type: 'LOOKUP_RESULT', success: true, data: cachedData, fromCache: true });
     }
 
-    let result: TermExplanation;
+    // Gọi qua Cloudflare Worker Backend Proxy (Hỗ trợ Groq Llama 3.3 siêu nhanh & Cache thông minh)
+    const endpoint = settings.apiEndpoint || DEFAULT_WORKER_ENDPOINT;
 
-    // Mode A: Direct Gemini API (if user provided a personal API key)
-    if (settings.apiKey && settings.apiKey.trim().length > 0) {
-      const client = new GoogleGenAI({ apiKey: settings.apiKey.trim() });
-      const userPrompt = `Term: "${request.selectedText}"\nContext: "${request.surroundingContext}"`;
-      
-      const interaction = await client.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: userPrompt,
-        config: {
-          systemInstruction: SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-        }
-      });
+    const serverRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        term: request.selectedText,
+        context: request.surroundingContext,
+      }),
+    });
 
-      const responseText = interaction.text;
-      if (!responseText) {
-        throw new Error('API trả về kết quả rỗng');
-      }
-
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse JSON:', responseText);
-        throw new Error('Không thể phân tích phản hồi từ AI');
-      }
-    } 
-    // Mode B: Cloudflare Worker Backend Proxy (Production standard - no user key required)
-    else {
-      const endpoint = settings.apiEndpoint || DEFAULT_WORKER_ENDPOINT;
-
-      const serverRes = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          term: request.selectedText,
-          context: request.surroundingContext,
-        }),
-      });
-
-      if (!serverRes.ok) {
-        const errJson = await serverRes.json().catch(() => ({}));
-        throw new Error(errJson.error || `Lỗi máy chủ (${serverRes.status})`);
-      }
-
-      const resData = await serverRes.json();
-      if (!resData.success || !resData.data) {
-        throw new Error(resData.error || 'Không nhận được kết quả từ máy chủ');
-      }
-
-      result = resData.data;
+    if (!serverRes.ok) {
+      const errJson = await serverRes.json().catch(() => ({}));
+      throw new Error(errJson.error || `Lỗi máy chủ (${serverRes.status})`);
     }
+
+    const resData = await serverRes.json();
+    if (!resData.success || !resData.data) {
+      throw new Error(resData.error || 'Không nhận được kết quả từ máy chủ');
+    }
+
+    const result: TermExplanation = resData.data;
 
     // 4. Cache the result
     await cacheTerm(request.selectedText, result);
